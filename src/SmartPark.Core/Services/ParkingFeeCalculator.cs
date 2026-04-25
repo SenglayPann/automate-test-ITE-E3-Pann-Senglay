@@ -71,14 +71,7 @@ public class ParkingFeeCalculator
         }
 
         var billableHours = Math.Max(1, (int)Math.Ceiling((totalDuration.TotalMinutes - 30) / 60.0));
-
-        decimal hourlyRate = vehicleType switch
-        {
-            VehicleType.Motorcycle => MotorcycleRatePerHour,
-            VehicleType.Car => CarRatePerHour,
-            VehicleType.SUV => SuvRatePerHour,
-            _ => throw new ArgumentException("Invalid vehicle type")
-        };
+        decimal hourlyRate = GetHourlyRate(vehicleType);
 
         decimal baseFee = billableHours * hourlyRate;
 
@@ -88,4 +81,12 @@ public class ParkingFeeCalculator
             TotalFee = baseFee
         };
     }
+
+    private decimal GetHourlyRate(VehicleType type) => type switch
+    {
+        VehicleType.Motorcycle => MotorcycleRatePerHour,
+        VehicleType.Car => CarRatePerHour,
+        VehicleType.SUV => SuvRatePerHour,
+        _ => throw new ArgumentException("Invalid vehicle type")
+    };
 }
