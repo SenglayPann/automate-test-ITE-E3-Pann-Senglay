@@ -29,8 +29,23 @@ public class ParkingFeeCalculatorTests
     }
 
     #region Basic Fee Calculation
-    // Test basic hourly rates for each vehicle type
-    // Consider using [Theory] with [InlineData] for multiple scenarios
+    [Theory]
+    [InlineData(VehicleType.Motorcycle, 2, 1000)]
+    [InlineData(VehicleType.Car, 3, 3000)]
+    [InlineData(VehicleType.SUV, 1, 1500)]
+    public void CalculateFee_BasicHourlyRate_ReturnsCorrectFee(VehicleType vehicleType, int hours, decimal expectedFee)
+    {
+        // Arrange
+        // Use a Monday to avoid weekend surcharge, and 10 AM to avoid overnight fee.
+        var checkIn = new DateTime(2026, 4, 20, 10, 0, 0); 
+        var checkOut = checkIn.AddHours(hours);
+
+        // Act
+        var result = _calculator.CalculateFee(vehicleType, MembershipTier.Guest, checkIn, checkOut);
+
+        // Assert
+        Assert.Equal(expectedFee, result.TotalFee);
+    }
     #endregion
 
     #region Grace Period
