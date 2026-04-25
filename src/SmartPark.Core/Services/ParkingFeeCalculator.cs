@@ -65,12 +65,12 @@ public class ParkingFeeCalculator
 
         var totalDuration = checkOut - checkIn;
 
-        if (totalDuration.TotalMinutes <= 30)
+        if (totalDuration.TotalMinutes <= GracePeriodMinutes)
         {
             return new ParkingFeeResult { BaseFee = 0, TotalFee = 0 };
         }
 
-        var billableHours = Math.Max(1, (int)Math.Ceiling((totalDuration.TotalMinutes - 30) / 60.0));
+        var billableHours = GetBillableHours(totalDuration);
         decimal hourlyRate = GetHourlyRate(vehicleType);
 
         decimal baseFee = billableHours * hourlyRate;
@@ -89,4 +89,9 @@ public class ParkingFeeCalculator
         VehicleType.SUV => SuvRatePerHour,
         _ => throw new ArgumentException("Invalid vehicle type")
     };
+
+    private int GetBillableHours(TimeSpan duration)
+    {
+        return Math.Max(1, (int)Math.Ceiling((duration.TotalMinutes - GracePeriodMinutes) / 60.0));
+    }
 }
