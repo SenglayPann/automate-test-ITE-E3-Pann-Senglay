@@ -49,11 +49,39 @@ public class ParkingFeeCalculatorTests
     #endregion
 
     #region Grace Period
-    // Test the free parking window and its boundaries
+    [Theory]
+    [InlineData(VehicleType.Motorcycle, 29)]
+    [InlineData(VehicleType.Car, 30)]
+    public void CalculateFee_GracePeriod_ReturnsFree(VehicleType vehicleType, int minutes)
+    {
+        // Arrange
+        var checkIn = new DateTime(2026, 4, 20, 10, 0, 0);
+        var checkOut = checkIn.AddMinutes(minutes);
+
+        // Act
+        var result = _calculator.CalculateFee(vehicleType, MembershipTier.Guest, checkIn, checkOut);
+
+        // Assert
+        Assert.Equal(0m, result.TotalFee);
+    }
     #endregion
 
     #region Duration Rounding
-    // Test how partial hours are rounded for billing
+    [Theory]
+    [InlineData(90, 1000)] // exactly 1 hr past grace
+    [InlineData(91, 2000)] // 1 hr 1 min past grace -> 2 hrs
+    public void CalculateFee_DurationRounding_AlwaysRoundsUp(int totalMinutes, decimal expectedFee)
+    {
+        // Arrange
+        var checkIn = new DateTime(2026, 4, 20, 10, 0, 0);
+        var checkOut = checkIn.AddMinutes(totalMinutes);
+
+        // Act
+        var result = _calculator.CalculateFee(VehicleType.Car, MembershipTier.Guest, checkIn, checkOut);
+
+        // Assert
+        Assert.Equal(expectedFee, result.TotalFee);
+    }
     #endregion
 
     #region Daily Cap
