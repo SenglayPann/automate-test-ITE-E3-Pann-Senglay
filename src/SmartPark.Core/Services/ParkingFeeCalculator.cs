@@ -64,7 +64,13 @@ public class ParkingFeeCalculator
             throw new ArgumentException("Check-out cannot be before check-in.");
 
         var totalDuration = checkOut - checkIn;
-        var billableHours = Math.Max(1, (int)Math.Ceiling(totalDuration.TotalMinutes / 60.0));
+
+        if (totalDuration.TotalMinutes <= 30)
+        {
+            return new ParkingFeeResult { BaseFee = 0, TotalFee = 0 };
+        }
+
+        var billableHours = Math.Max(1, (int)Math.Ceiling((totalDuration.TotalMinutes - 30) / 60.0));
         decimal hourlyRate = GetHourlyRate(vehicleType);
 
         decimal baseFee = billableHours * hourlyRate;
