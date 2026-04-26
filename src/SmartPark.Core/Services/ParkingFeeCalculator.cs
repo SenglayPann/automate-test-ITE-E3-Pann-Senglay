@@ -71,15 +71,7 @@ public class ParkingFeeCalculator
         }
 
         var billableHours = GetBillableHours(totalDuration);
-        decimal hourlyRate = GetHourlyRate(vehicleType);
-
-        decimal baseFee = billableHours * hourlyRate;
-        decimal dailyCap = GetDailyCap(vehicleType);
-
-        if (baseFee > dailyCap)
-        {
-            baseFee = dailyCap;
-        }
+        decimal baseFee = GetCappedBaseFee(billableHours, vehicleType);
 
         decimal overnightFee = IsOvernightSession(checkIn, checkOut) ? OvernightFlatFee : 0m;
         decimal totalFee = baseFee + overnightFee;
@@ -106,6 +98,14 @@ public class ParkingFeeCalculator
         VehicleType.SUV => SuvDailyCap,
         _ => throw new ArgumentException("Invalid vehicle type")
     };
+
+    private decimal GetCappedBaseFee(int billableHours, VehicleType vehicleType)
+    {
+        decimal hourlyRate = GetHourlyRate(vehicleType);
+        decimal baseFee = billableHours * hourlyRate;
+        decimal dailyCap = GetDailyCap(vehicleType);
+        return baseFee > dailyCap ? dailyCap : baseFee;
+    }
 
     private int GetBillableHours(TimeSpan duration)
     {
