@@ -74,6 +74,12 @@ public class ParkingFeeCalculator
         decimal hourlyRate = GetHourlyRate(vehicleType);
 
         decimal baseFee = billableHours * hourlyRate;
+        decimal dailyCap = GetDailyCap(vehicleType);
+
+        if (baseFee > dailyCap)
+        {
+            baseFee = dailyCap;
+        }
 
         return new ParkingFeeResult
         {
@@ -87,6 +93,14 @@ public class ParkingFeeCalculator
         VehicleType.Motorcycle => MotorcycleRatePerHour,
         VehicleType.Car => CarRatePerHour,
         VehicleType.SUV => SuvRatePerHour,
+        _ => throw new ArgumentException("Invalid vehicle type")
+    };
+
+    private decimal GetDailyCap(VehicleType type) => type switch
+    {
+        VehicleType.Motorcycle => MotorcycleDailyCap,
+        VehicleType.Car => CarDailyCap,
+        VehicleType.SUV => SuvDailyCap,
         _ => throw new ArgumentException("Invalid vehicle type")
     };
 
