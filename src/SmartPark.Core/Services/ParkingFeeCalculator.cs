@@ -81,10 +81,13 @@ public class ParkingFeeCalculator
             baseFee = dailyCap;
         }
 
+        decimal overnightFee = IsOvernightSession(checkIn, checkOut) ? OvernightFlatFee : 0m;
+        decimal totalFee = baseFee + overnightFee;
+
         return new ParkingFeeResult
         {
             BaseFee = baseFee,
-            TotalFee = baseFee
+            TotalFee = totalFee
         };
     }
 
@@ -107,5 +110,22 @@ public class ParkingFeeCalculator
     private int GetBillableHours(TimeSpan duration)
     {
         return Math.Max(1, (int)Math.Ceiling((duration.TotalMinutes - GracePeriodMinutes) / 60.0));
+    }
+
+    private bool IsOvernightSession(DateTime checkIn, DateTime checkOut)
+    {
+        var temp = checkIn;
+        while (temp <= checkOut)
+        {
+            if (temp.Hour >= OvernightHourThreshold || temp.Hour < 6)
+            {
+                return true;
+            }
+            if (temp == checkOut) break;
+
+            temp = temp.AddMinutes(15);
+            if (temp > checkOut) temp = checkOut;
+        }
+        return false;
     }
 }
