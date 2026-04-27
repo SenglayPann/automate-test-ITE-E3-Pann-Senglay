@@ -67,7 +67,13 @@ public class ParkingFeeCalculator
 
         if (totalDuration.TotalMinutes <= GracePeriodMinutes)
         {
-            return new ParkingFeeResult { BaseFee = 0, TotalFee = 0 };
+            decimal gracePenalty = isLostTicket ? LostTicketPenalty : 0m;
+            return new ParkingFeeResult 
+            { 
+                BaseFee = 0, 
+                LostTicketPenalty = gracePenalty,
+                TotalFee = gracePenalty 
+            };
         }
 
         var billableHours = GetBillableHours(totalDuration);
@@ -94,14 +100,18 @@ public class ParkingFeeCalculator
         };
 
         decimal discountAmount = (baseFee + surchargeAmount) * discountRate;
+        
+        decimal penaltyAmount = isLostTicket ? LostTicketPenalty : 0m;
 
-        decimal totalFee = baseFee + surchargeAmount - discountAmount + overnightFee;
+        decimal totalFee = baseFee + surchargeAmount - discountAmount + overnightFee + penaltyAmount;
+        if (totalFee < 0) totalFee = 0;
 
         return new ParkingFeeResult
         {
             BaseFee = baseFee,
             SurchargeAmount = surchargeAmount,
             DiscountAmount = discountAmount,
+            LostTicketPenalty = penaltyAmount,
             TotalFee = totalFee
         };
     }
