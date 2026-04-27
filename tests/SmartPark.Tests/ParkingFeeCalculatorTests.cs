@@ -179,7 +179,31 @@ public class ParkingFeeCalculatorTests
     #endregion
 
     #region Lost Ticket
-    // Test the penalty and how it interacts with other fee modifiers
+    [Fact]
+    public void CalculateFee_LostTicket_AddsPenaltyNotSubjectToDiscount()
+    {
+        var checkIn = new DateTime(2026, 4, 15, 10, 0, 0); // Wednesday
+        var checkOut = checkIn.AddHours(3); // Car 3h = 3000
+        
+        // Base = 3000. Gold discount (25%) = 750. Total without penalty = 2250.
+        // Penalty = 20000. Expected total = 22250.
+        var result = _calculator.CalculateFee(VehicleType.Car, MembershipTier.Gold, checkIn, checkOut, isLostTicket: true);
+        
+        Assert.Equal(20000m, result.LostTicketPenalty);
+        Assert.Equal(22250m, result.TotalFee);
+    }
+    
+    [Fact]
+    public void CalculateFee_LostTicketDuringGracePeriod_StillAppliesPenalty()
+    {
+        var checkIn = new DateTime(2026, 4, 15, 10, 0, 0);
+        var checkOut = checkIn.AddMinutes(15); // Grace period -> base fee 0
+        
+        // Expected total = 20000.
+        var result = _calculator.CalculateFee(VehicleType.Car, MembershipTier.Guest, checkIn, checkOut, isLostTicket: true);
+        
+        Assert.Equal(20000m, result.TotalFee);
+    }
     #endregion
 
     #region Edge Cases
