@@ -124,11 +124,36 @@ public class ParkingFeeCalculatorTests
     #endregion
 
     #region Weekend Surcharge
-    // Test the percentage-based surcharge on specific days
+    [Theory]
+    [InlineData("2026-04-25T10:00:00", "2026-04-25T13:00:00", 3600)] // Saturday: Car 3h = 3000 * 1.2 = 3600
+    [InlineData("2026-04-26T10:00:00", "2026-04-26T13:00:00", 3600)] // Sunday: Car 3h = 3000 * 1.2 = 3600
+    public void CalculateFee_WeekendSession_Adds20PercentSurcharge(string checkInStr, string checkOutStr, decimal expectedFee)
+    {
+        var checkIn = DateTime.Parse(checkInStr);
+        var checkOut = DateTime.Parse(checkOutStr);
+        var result = _calculator.CalculateFee(VehicleType.Car, MembershipTier.Guest, checkIn, checkOut);
+        Assert.Equal(expectedFee, result.TotalFee);
+    }
     #endregion
 
     #region Holiday Surcharge
-    // Test holiday pricing and its interaction with weekend pricing
+    [Fact]
+    public void CalculateFee_HolidaySession_Adds50PercentSurcharge()
+    {
+        var checkIn = new DateTime(2026, 4, 15, 10, 0, 0); // Wednesday
+        var checkOut = checkIn.AddHours(3);
+        var result = _calculator.CalculateFee(VehicleType.Car, MembershipTier.Guest, checkIn, checkOut, isHoliday: true);
+        Assert.Equal(4500m, result.TotalFee);
+    }
+
+    [Fact]
+    public void CalculateFee_WeekendAndHoliday_AppliesOnlyHolidaySurcharge()
+    {
+        var checkIn = new DateTime(2026, 4, 25, 10, 0, 0); // Saturday
+        var checkOut = checkIn.AddHours(3);
+        var result = _calculator.CalculateFee(VehicleType.Car, MembershipTier.Guest, checkIn, checkOut, isHoliday: true);
+        Assert.Equal(4500m, result.TotalFee);
+    }
     #endregion
 
     #region Membership Discounts
