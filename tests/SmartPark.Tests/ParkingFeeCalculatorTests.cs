@@ -157,7 +157,25 @@ public class ParkingFeeCalculatorTests
     #endregion
 
     #region Membership Discounts
-    // Test discount tiers and what amounts they apply to
+    [Theory]
+    [InlineData(MembershipTier.Silver, 0.10)]
+    [InlineData(MembershipTier.Gold, 0.25)]
+    [InlineData(MembershipTier.Platinum, 0.40)]
+    public void CalculateFee_MembershipTier_AppliesDiscountToBaseAndSurcharge(MembershipTier tier, decimal expectedDiscountRate)
+    {
+        var checkIn = new DateTime(2026, 4, 15, 10, 0, 0); // Wednesday
+        var checkOut = checkIn.AddHours(3); // Car 3h = 3000
+        
+        // Let's add a holiday to test base + surcharge discount
+        var result = _calculator.CalculateFee(VehicleType.Car, tier, checkIn, checkOut, isHoliday: true);
+        
+        // Base = 3000. Holiday = 1500. Subtotal = 4500.
+        decimal expectedDiscount = 4500m * expectedDiscountRate;
+        decimal expectedTotal = 4500m - expectedDiscount;
+        
+        Assert.Equal(expectedDiscount, result.DiscountAmount);
+        Assert.Equal(expectedTotal, result.TotalFee);
+    }
     #endregion
 
     #region Lost Ticket
