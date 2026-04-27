@@ -74,11 +74,23 @@ public class ParkingFeeCalculator
         decimal baseFee = GetCappedBaseFee(billableHours, vehicleType);
 
         decimal overnightFee = IsOvernightSession(checkIn, checkOut) ? OvernightFlatFee : 0m;
-        decimal totalFee = baseFee + overnightFee;
+        
+        decimal surchargeAmount = 0m;
+        if (isHoliday)
+        {
+            surchargeAmount = baseFee * HolidaySurchargeRate;
+        }
+        else if (IsWeekendSession(checkIn, checkOut))
+        {
+            surchargeAmount = baseFee * WeekendSurchargeRate;
+        }
+
+        decimal totalFee = baseFee + surchargeAmount + overnightFee;
 
         return new ParkingFeeResult
         {
             BaseFee = baseFee,
+            SurchargeAmount = surchargeAmount,
             TotalFee = totalFee
         };
     }
@@ -118,6 +130,23 @@ public class ParkingFeeCalculator
         while (temp <= checkOut)
         {
             if (temp.Hour >= OvernightHourThreshold || temp.Hour < 6)
+            {
+                return true;
+            }
+            if (temp == checkOut) break;
+
+            temp = temp.AddMinutes(15);
+            if (temp > checkOut) temp = checkOut;
+        }
+        return false;
+    }
+
+    private bool IsWeekendSession(DateTime checkIn, DateTime checkOut)
+    {
+        var temp = checkIn;
+        while (temp <= checkOut)
+        {
+            if (temp.DayOfWeek == DayOfWeek.Saturday || temp.DayOfWeek == DayOfWeek.Sunday)
             {
                 return true;
             }
