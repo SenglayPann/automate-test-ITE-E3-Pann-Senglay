@@ -85,12 +85,23 @@ public class ParkingFeeCalculator
             surchargeAmount = baseFee * WeekendSurchargeRate;
         }
 
-        decimal totalFee = baseFee + surchargeAmount + overnightFee;
+        decimal discountRate = membership switch
+        {
+            MembershipTier.Silver => SilverDiscountRate,
+            MembershipTier.Gold => GoldDiscountRate,
+            MembershipTier.Platinum => PlatinumDiscountRate,
+            _ => 0m
+        };
+
+        decimal discountAmount = (baseFee + surchargeAmount) * discountRate;
+
+        decimal totalFee = baseFee + surchargeAmount - discountAmount + overnightFee;
 
         return new ParkingFeeResult
         {
             BaseFee = baseFee,
             SurchargeAmount = surchargeAmount,
+            DiscountAmount = discountAmount,
             TotalFee = totalFee
         };
     }
