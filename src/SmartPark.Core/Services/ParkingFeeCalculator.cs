@@ -80,27 +80,8 @@ public class ParkingFeeCalculator
         decimal baseFee = GetCappedBaseFee(billableHours, vehicleType);
 
         decimal overnightFee = IsOvernightSession(checkIn, checkOut) ? OvernightFlatFee : 0m;
-        
-        decimal surchargeAmount = 0m;
-        if (isHoliday)
-        {
-            surchargeAmount = baseFee * HolidaySurchargeRate;
-        }
-        else if (IsWeekendSession(checkIn, checkOut))
-        {
-            surchargeAmount = baseFee * WeekendSurchargeRate;
-        }
-
-        decimal discountRate = membership switch
-        {
-            MembershipTier.Silver => SilverDiscountRate,
-            MembershipTier.Gold => GoldDiscountRate,
-            MembershipTier.Platinum => PlatinumDiscountRate,
-            _ => 0m
-        };
-
-        decimal discountAmount = (baseFee + surchargeAmount) * discountRate;
-        
+        decimal surchargeAmount = GetSurchargeAmount(baseFee, isHoliday, checkIn, checkOut);
+        decimal discountAmount = GetDiscountAmount(baseFee + surchargeAmount, membership);
         decimal penaltyAmount = isLostTicket ? LostTicketPenalty : 0m;
 
         decimal totalFee = baseFee + surchargeAmount - discountAmount + overnightFee + penaltyAmount;
@@ -138,6 +119,27 @@ public class ParkingFeeCalculator
         decimal baseFee = billableHours * hourlyRate;
         decimal dailyCap = GetDailyCap(vehicleType);
         return baseFee > dailyCap ? dailyCap : baseFee;
+    }
+
+    private decimal GetSurchargeAmount(decimal baseFee, bool isHoliday, DateTime checkIn, DateTime checkOut)
+    {
+        if (isHoliday)
+            return baseFee * HolidaySurchargeRate;
+        if (IsWeekendSession(checkIn, checkOut))
+            return baseFee * WeekendSurchargeRate;
+        return 0m;
+    }
+
+    private decimal GetDiscountAmount(decimal eligibleAmount, MembershipTier tier)
+    {
+        decimal rate = tier switch
+        {
+            MembershipTier.Silver => SilverDiscountRate,
+            MembershipTier.Gold => GoldDiscountRate,
+            MembershipTier.Platinum => PlatinumDiscountRate,
+            _ => 0m
+        };
+        return eligibleAmount * rate;
     }
 
     private int GetBillableHours(TimeSpan duration)
