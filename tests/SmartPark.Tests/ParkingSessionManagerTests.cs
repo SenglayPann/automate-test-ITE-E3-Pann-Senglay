@@ -58,23 +58,103 @@ public class ParkingSessionManagerTests
     }
 
     #region CheckIn — Happy Path
-    // Test successful vehicle check-in and verify correct interactions
+    [Fact]
+    public async Task CheckInAsync_ValidInput_SavesAndReturnsTicket()
+    {
+        // Arrange
+        _membershipStub.Setup(m => m.GetMembershipTier("AA-1111")).Returns(MembershipTier.Gold);
+        _repoStub.Setup(r => r.GetActiveTicketByPlateAsync("AA-1111")).ReturnsAsync((ParkingTicket?)null);
+        var now = new DateTime(2026, 4, 25, 10, 0, 0);
+        _dateTimeStub.Setup(d => d.Now).Returns(now);
+
+        // Act
+        var ticket = await _manager.CheckInAsync("AA-1111", VehicleType.SUV);
+
+        // Assert
+        Assert.Equal("AA-1111", ticket.Vehicle.LicensePlate);
+        Assert.Equal(VehicleType.SUV, ticket.Vehicle.Type);
+        Assert.Equal(MembershipTier.Gold, ticket.Vehicle.Membership);
+        Assert.Equal(now, ticket.CheckInTime);
+        _repoStub.Verify(r => r.SaveTicketAsync(ticket), Times.Once);
+    }
     #endregion
 
     #region CheckIn — Validation
-    // Test check-in error scenarios and verify side effects
+    [Fact]
+    public async Task CheckInAsync_VehicleAlreadyCheckedIn_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var existingTicket = new ParkingTicket();
+        _repoStub.Setup(r => r.GetActiveTicketByPlateAsync("AA-1111")).ReturnsAsync(existingTicket);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _manager.CheckInAsync("AA-1111", VehicleType.Car));
+        _repoStub.Verify(r => r.SaveTicketAsync(It.IsAny<ParkingTicket>()), Times.Never);
+    }
     #endregion
 
     #region CheckOut — Happy Path
-    // Test successful check-out with payment and notification
+    [Fact]
+    public async Task CheckOutAsync_ValidTicket_ProcessesPaymentAndUpdatesTicket()
+    {
+        // Arrange
+        var ticket = new ParkingTicket
+        {
+            TicketId = "T-123",
+            Vehicle = new Vehicle { LicensePlate = "BB-2222", Type = VehicleType.Car, Membership = MembershipTier.Guest },
+            CheckInTime = new DateTime(2026, 4, 20, 10, 0, 0) // Monday
+        };
+        _repoStub.Setup(r => r.GetTicketByIdAsync("T-123")).ReturnsAsync(ticket);
+        _dateTimeStub.Setup(d => d.Now).Returns(new DateTime(2026, 4, 20, 12, 0, 0)); // 2 hours -> 2000 KHR
+        _paymentStub.Setup(p => p.ProcessPaymentAsync("T-123", It.IsAny<decimal>())).ReturnsAsync(true);
+
+        // Act
+        var feeResult = await _manager.CheckOutAsync("T-123", "0123456789");
+
+        // Assert
+        Assert.Equal(2000m, feeResult.TotalFee);
+        _paymentStub.Verify(p => p.ProcessPaymentAsync("T-123", 2000m), Times.Once);
+        _repoStub.Verify(r => r.UpdateTicketAsync(It.Is<ParkingTicket>(t => t.CheckOutTime != null && !t.IsActive)), Times.Once);
+        _notificationStub.Verify(n => n.SendReceiptAsync("0123456789", It.IsAny<string>()), Times.Once);
+    }
     #endregion
 
     #region CheckOut — Payment Failure
-    // Test behavior when the payment step fails
+    [Fact]
+    public async Task CheckOutAsync_PaymentFails_ThrowsExceptionAndDoesNotUpdateTicket()
+    {
+        // Arrange
+        var ticket = new ParkingTicket
+        {
+            TicketId = "T-123",
+            Vehicle = new Vehicle { Type = VehicleType.Car }
+        };
+        _repoStub.Setup(r => r.GetTicketByIdAsync("T-123")).ReturnsAsync(ticket);
+        _paymentStub.Setup(p => p.ProcessPaymentAsync("T-123", It.IsAny<decimal>())).ReturnsAsync(false);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<Exception>(() => _manager.CheckOutAsync("T-123", "0123456789"));
+        _repoStub.Verify(r => r.UpdateTicketAsync(It.IsAny<ParkingTicket>()), Times.Never);
+    }
     #endregion
 
     #region CheckOut — Notification Failure
-    // Test what happens when sending the receipt fails
+    [Fact]
+    public async Task CheckOutAsync_NotificationFails_DoesNotFailCheckOut()
+    {
+        // Arrange
+        var ticket = new ParkingTicket { TicketId = "T-123", Vehicle = new Vehicle { Type = VehicleType.Car } };
+        _repoStub.Setup(r => r.GetTicketByIdAsync("T-123")).ReturnsAsync(ticket);
+        _paymentStub.Setup(p => p.ProcessPaymentAsync("T-123", It.IsAny<decimal>())).ReturnsAsync(true);
+        _notificationStub.Setup(n => n.SendReceiptAsync(It.IsAny<string>(), It.IsAny<string>())).ThrowsAsync(new Exception("SMS gateway down"));
+
+        // Act
+        var result = await _manager.CheckOutAsync("T-123", "0123456789");
+
+        // Assert
+        Assert.NotNull(result);
+        _repoStub.Verify(r => r.UpdateTicketAsync(ticket), Times.Once);
+    }
     #endregion
 
     #region CheckOut — Validation
