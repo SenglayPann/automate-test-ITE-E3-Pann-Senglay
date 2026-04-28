@@ -211,7 +211,47 @@ public class ParkingFeeCalculatorTests
     #endregion
 
     #region Property-Based Tests
-    // Write at least 5 FsCheck properties that must hold for ALL valid inputs
-    // You may need custom Arbitrary<T> for generating valid DateTime pairs
+    [Property]
+    public bool TotalFee_IsAlwaysNonNegative(VehicleType vehicleType, MembershipTier tier, DateTime dt1, DateTime dt2, bool isLostTicket, bool isHoliday)
+    {
+        var checkIn = dt1 < dt2 ? dt1 : dt2;
+        var checkOut = dt1 < dt2 ? dt2 : dt1;
+        var result = _calculator.CalculateFee(vehicleType, tier, checkIn, checkOut, isLostTicket, isHoliday);
+        return result.TotalFee >= 0m;
+    }
+
+    [Property]
+    public bool BaseFee_IsAlwaysNonNegative(VehicleType vehicleType, MembershipTier tier, DateTime dt1, DateTime dt2, bool isLostTicket, bool isHoliday)
+    {
+        var checkIn = dt1 < dt2 ? dt1 : dt2;
+        var checkOut = dt1 < dt2 ? dt2 : dt1;
+        var result = _calculator.CalculateFee(vehicleType, tier, checkIn, checkOut, isLostTicket, isHoliday);
+        return result.BaseFee >= 0m;
+    }
+
+    [Property]
+    public bool Discount_IsAlwaysNonNegative(VehicleType vehicleType, MembershipTier tier, DateTime dt1, DateTime dt2, bool isLostTicket, bool isHoliday)
+    {
+        var checkIn = dt1 < dt2 ? dt1 : dt2;
+        var checkOut = dt1 < dt2 ? dt2 : dt1;
+        var result = _calculator.CalculateFee(vehicleType, tier, checkIn, checkOut, isLostTicket, isHoliday);
+        return result.DiscountAmount >= 0m;
+    }
+
+    [Property]
+    public bool ZeroDuration_IsAlwaysFreeUnlessLostTicket(VehicleType vehicleType, MembershipTier tier, DateTime dt, bool isHoliday)
+    {
+        var result = _calculator.CalculateFee(vehicleType, tier, dt, dt, isLostTicket: false, isHoliday: isHoliday);
+        return result.TotalFee == 0m;
+    }
+
+    [Property]
+    public bool LostTicket_AlwaysAddsPenalty(VehicleType vehicleType, MembershipTier tier, DateTime dt1, DateTime dt2, bool isHoliday)
+    {
+        var checkIn = dt1 < dt2 ? dt1 : dt2;
+        var checkOut = dt1 < dt2 ? dt2 : dt1;
+        var result = _calculator.CalculateFee(vehicleType, tier, checkIn, checkOut, isLostTicket: true, isHoliday: isHoliday);
+        return result.LostTicketPenalty == 20000m && result.TotalFee >= 20000m;
+    }
     #endregion
 }
