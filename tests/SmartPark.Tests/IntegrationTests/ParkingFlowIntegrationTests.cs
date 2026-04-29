@@ -86,7 +86,7 @@ public class ParkingFlowIntegrationTests
         Assert.Equal(20_000m, result.TotalFee);
         
         // Verify state
-        var dbTicket = await _repository.GetTicketByIdAsync(ticket.TicketId);
+        var dbTicket = (await _repository.GetTicketByIdAsync(ticket.TicketId))!;
         Assert.False(dbTicket.IsActive);
         Assert.True(dbTicket.IsLostTicket);
         Assert.Equal(_currentTime, dbTicket.CheckOutTime);
@@ -131,12 +131,12 @@ public class ParkingFlowIntegrationTests
         
         // First attempt fails
         await Assert.ThrowsAsync<Exception>(() => _manager.CheckOutAsync(ticket.TicketId, "000"));
-        var dbTicket = await _repository.GetTicketByIdAsync(ticket.TicketId);
+        var dbTicket = (await _repository.GetTicketByIdAsync(ticket.TicketId))!;
         Assert.True(dbTicket.IsActive); // Should remain active
 
         // Second attempt succeeds
         var result = await _manager.CheckOutAsync(ticket.TicketId, "000");
-        dbTicket = await _repository.GetTicketByIdAsync(ticket.TicketId);
+        dbTicket = (await _repository.GetTicketByIdAsync(ticket.TicketId))!;
         Assert.False(dbTicket.IsActive);
         Assert.Equal(2000m, result.TotalFee);
     }
