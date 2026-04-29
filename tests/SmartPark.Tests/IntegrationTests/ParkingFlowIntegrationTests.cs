@@ -73,18 +73,104 @@ public class ParkingFlowIntegrationTests
     }
 
     #region Full Parking Flow
-    // End-to-end scenarios from check-in through check-out
+    [Fact]
+    public async Task FullFlow_LostTicket_CalculatesPenaltyAndStoresState()
+    {
+        _currentTime = new DateTime(2026, 4, 15, 10, 0, 0); // Wednesday
+        var ticket = await _manager.CheckInAsync("TEST-002", VehicleType.Motorcycle);
+
+        _currentTime = new DateTime(2026, 4, 15, 10, 15, 0); // 15 mins (grace period)
+        var result = await _manager.CheckOutAsync(ticket.TicketId, "012-345-678", isLostTicket: true);
+
+        // Assert: 0 base fee, but 20k lost ticket penalty.
+        Assert.Equal(20_000m, result.TotalFee);
+        
+        // Verify state
+        var dbTicket = await _repository.GetTicketByIdAsync(ticket.TicketId);
+        Assert.False(dbTicket.IsActive);
+        Assert.True(dbTicket.IsLostTicket);
+        Assert.Equal(_currentTime, dbTicket.CheckOutTime);
+    }
     #endregion
 
     #region Multiple Vehicles
-    // Test concurrent parking sessions and their lifecycle
+    [Fact]
+    public async Task MultipleVehicles_IndependentSessions_CalculatedSeparately()
+    {
+        _currentTime = new DateTime(2026, 4, 15, 10, 0, 0);
+        var t1 = await _manager.CheckInAsync("CAR-1", VehicleType.Car);
+        
+        _currentTime = new DateTime(2026, 4, 15, 11, 0, 0);
+        var t2 = await _manager.CheckInAsync("SUV-2", VehicleType.SUV);
+        
+        // Checkout SUV-2 at 12:00 -> 1h -> 1500
+        _currentTime = new DateTime(2026, 4, 15, 12, 0, 0);
+        var result2 = await _manager.CheckOutAsync(t2.TicketId, "000");
+        
+        // Checkout CAR-1 at 13:00 -> 3h -> 3000
+        _currentTime = new DateTime(2026, 4, 15, 13, 0, 0);
+        var result1 = await _manager.CheckOutAsync(t1.TicketId, "000");
+
+        Assert.Equal(1500m, result2.TotalFee);
+        Assert.Equal(3000m, result1.TotalFee);
+    }
     #endregion
 
     #region Error Recovery
-    // Test system state consistency after error conditions
+    [Fact]
+    public async Task CheckOut_PaymentFails_TicketRemainsActive()
+    {
+        _paymentStub.SetupSequence(p => p.ProcessPaymentAsync(It.IsAny<string>(), It.IsAny<decimal>()))
+            .ReturnsAsync(false) // First fails
+            .ReturnsAsync(true); // Second succeeds
+
+        _currentTime = new DateTime(2026, 4, 15, 10, 0, 0);
+        var ticket = await _manager.CheckInAsync("TEST-003", VehicleType.Car);
+
+        _currentTime = new DateTime(2026, 4, 15, 12, 0, 0);
+        
+        // First attempt fails
+        await Assert.ThrowsAsync<Exception>(() => _manager.CheckOutAsync(ticket.TicketId, "000"));
+        var dbTicket = await _repository.GetTicketByIdAsync(ticket.TicketId);
+        Assert.True(dbTicket.IsActive); // Should remain active
+
+        // Second attempt succeeds
+        var result = await _manager.CheckOutAsync(ticket.TicketId, "000");
+        dbTicket = await _repository.GetTicketByIdAsync(ticket.TicketId);
+        Assert.False(dbTicket.IsActive);
+        Assert.Equal(2000m, result.TotalFee);
+    }
     #endregion
 
     #region Edge-to-Edge Scenarios
-    // Test complex combinations of fee modifiers working together
+    [Fact]
+    public async Task FullFlow_OvernightAndHoliday_CalculatesComplexFee()
+    {
+        _currentTime = new DateTime(2026, 4, 15, 20, 0, 0); // Wed, 8 PM
+        var ticket = await _manager.CheckInAsync("NIGHT-1", VehicleType.Car);
+
+        _currentTime = new DateTime(2026, 4, 15, 23, 0, 0); // Wed, 11 PM
+        // 3 hours = 3000 base fee
+        // + Overnight (crosses 10 PM) = 2000
+        // + Holiday (+50% of 3000 = 1500)
+        // Total = 3000 + 1500 + 2000 = 6500
+
+        var result = await _manager.CheckOutAsync(ticket.TicketId, "000", isHoliday: true);
+
+        Assert.Equal(6500m, result.TotalFee);
+    }
+
+    [Fact]
+    public async Task FullFlow_DailyCapReached_DoesNotAddMoreHourlyFees()
+    {
+        _currentTime = new DateTime(2026, 4, 16, 8, 0, 0);
+        var ticket = await _manager.CheckInAsync("CAP-1", VehicleType.Motorcycle);
+
+        _currentTime = new DateTime(2026, 4, 16, 20, 0, 0); // 12 hours -> base 6000. Cap is 4000.
+        
+        var result = await _manager.CheckOutAsync(ticket.TicketId, "000");
+
+        Assert.Equal(4000m, result.TotalFee);
+    }
     #endregion
 }
