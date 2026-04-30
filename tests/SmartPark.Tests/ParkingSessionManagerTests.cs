@@ -158,10 +158,25 @@ public class ParkingSessionManagerTests
     #endregion
 
     #region CheckOut — Validation
-    // Test check-out error scenarios for missing or invalid tickets
-    #endregion
+    [Fact]
+    public async Task CheckOutAsync_TicketNotFound_ThrowsKeyNotFoundException()
+    {
+        // Arrange
+        _repoStub.Setup(r => r.GetTicketByIdAsync("INVALID")).ReturnsAsync((ParkingTicket)null!);
 
-    #region Verify Interaction Order
-    // Verify that dependencies are called in the correct sequence
+        // Act & Assert
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _manager.CheckOutAsync("INVALID", "000"));
+    }
+
+    [Fact]
+    public async Task CheckOutAsync_TicketAlreadyProcessed_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        var inactiveTicket = new ParkingTicket { TicketId = "TEST", Vehicle = new Vehicle { Type = VehicleType.Car }, CheckOutTime = DateTime.Now };
+        _repoStub.Setup(r => r.GetTicketByIdAsync("TEST")).ReturnsAsync(inactiveTicket);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _manager.CheckOutAsync("TEST", "000"));
+    }
     #endregion
 }
