@@ -145,6 +145,8 @@ static async Task HandleCheckOut(ParkingSessionManager manager)
             Console.WriteLine($"  │  Surcharge      : +{result.SurchargeAmount,9:N0} KHR │");
         if (result.DiscountAmount > 0)
             Console.WriteLine($"  │  Discount       : -{result.DiscountAmount,9:N0} KHR │");
+        if (result.OvernightFee > 0)
+            Console.WriteLine($"  │  Overnight Fee  : +{result.OvernightFee,9:N0} KHR │");
         if (result.LostTicketPenalty > 0)
             Console.WriteLine($"  │  Lost Ticket    : +{result.LostTicketPenalty,9:N0} KHR │");
         WriteColor($"  │  ─────────────────────────────────────  │", ConsoleColor.Yellow);

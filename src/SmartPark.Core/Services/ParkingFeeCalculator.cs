@@ -72,7 +72,8 @@ public class ParkingFeeCalculator
             { 
                 BaseFee = 0, 
                 LostTicketPenalty = gracePenalty,
-                TotalFee = gracePenalty 
+                TotalFee = gracePenalty,
+                Breakdown = isLostTicket ? $"Lost Ticket Penalty: {gracePenalty} KHR" : "Free (Within 30min grace period)"
             };
         }
 
@@ -87,13 +88,21 @@ public class ParkingFeeCalculator
         decimal totalFee = baseFee + surchargeAmount - discountAmount + overnightFee + penaltyAmount;
         if (totalFee < 0) totalFee = 0;
 
+        var breakdown = $"Base Fee: {baseFee} KHR ({billableHours}h x {GetHourlyRate(vehicleType)} KHR, capped at {GetDailyCap(vehicleType)} KHR)";
+        if (overnightFee > 0) breakdown += $"\nOvernight Fee: +{overnightFee} KHR";
+        if (surchargeAmount > 0) breakdown += $"\nSurcharge ({(isHoliday ? "Holiday" : "Weekend")}): +{surchargeAmount} KHR";
+        if (discountAmount > 0) breakdown += $"\nMembership Discount ({membership}): -{discountAmount} KHR";
+        if (penaltyAmount > 0) breakdown += $"\nLost Ticket Penalty: +{penaltyAmount} KHR";
+
         return new ParkingFeeResult
         {
             BaseFee = baseFee,
             SurchargeAmount = surchargeAmount,
             DiscountAmount = discountAmount,
             LostTicketPenalty = penaltyAmount,
-            TotalFee = totalFee
+            OvernightFee = overnightFee,
+            TotalFee = totalFee,
+            Breakdown = breakdown
         };
     }
 
